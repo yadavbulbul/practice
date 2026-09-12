@@ -213,7 +213,90 @@ Order
 */
 
 #include<iostream>
+#include<vector>
 using namespace std;
+
+class FoodItem{
+private:
+    string id;
+    string name;
+    double price;
+    int quantityAvailable;
+};
+
+class Menu{
+private:
+    vector<FoodItem*>menuItems;
+};
+
+class Restaurant{
+private:
+    string id;
+    string name;
+    string address;
+    Menu* menu;
+    string openingTime;
+    string closingTime;
+};
+
+class CartItem{
+private:
+    FoodItem* foodItem;
+    int quantity; 
+};
+
+class Cart{
+private:
+    vector<CartItem*> cartItems;
+};
+
+class Customer {
+private:
+    string id;
+    string name;
+    string address;
+    string phoneNumber;
+    bool isPrimeMember;
+};
+
+class OrderItem{
+private:
+    FoodItem* foodItem;
+    int quantity;
+    double price;
+};
+
+class DeliveryPartner{
+private:
+    string id;
+    string name;
+    string phoneNumber;
+    bool availability;
+    string currentLocation;
+};
+
+enum class OrderStatus {
+    PLACED,
+    CONFIRMED,
+    PREPARING,
+    OUT_FOR_DELIVERY,
+    DELIVERED
+};
+
+class Order{
+private:
+    string id;
+    Customer* customer;
+    Restaurant* restaurant;
+    vector<OrderItem*>orderItems;
+    string orderDateTime;
+    DeliveryPartner* deliveryPartner;
+    OrderStatus status;
+};
+
+class OrderService{
+    Order* order;
+};
 
 enum class PaymentType{
     UPI,
