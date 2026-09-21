@@ -16,6 +16,7 @@ class Balance;
 class BalanceService;
 
 
+
 class User{
 private:
     string id;
@@ -115,6 +116,12 @@ public:
     vector<Expense*> getExpenses() const{
         return expenses;
     }
+    void addUser(User* user){
+        users.push_back(user);
+    }
+    void addExpense(Expense* expense){
+        expenses.push_back(expense);
+    }
 
 };
 
@@ -198,24 +205,22 @@ public:
     }
 };
 
-class ExpenseService{
-private:
-    SplitStrategy* splitStrategy;
-    BalanceService* balanceService;
+enum class SplitType{
+    EQUAL,
+    PERCENT,
+    EXACT
+};
 
+class SplitFactory{
 public:
-    ExpenseService(SplitStrategy* splitStrategy, BalanceService* balanceService){
-        this->splitStrategy=splitStrategy;
-        this->balanceService=balanceService;
-    }
-
-    Expense* createExpense(string id,double totalAmount,User* paidBy,string description,vector<User*>&users,vector<double>&values){
-        vector<Split*>splits = splitStrategy->calculateSplits(totalAmount,users,values);
-        Expense* expense = new Expense(id,description,paidBy,totalAmount);
-        for(Split* split:splits){
-            expense->addSplit(split);
-        }
-        return expense;
+    SplitStrategy* createSplitStrategy(SplitType type){
+        if(type==SplitType::EQUAL){
+            return new EqualSplitStrategy();
+        }else if(type==SplitType::EXACT){
+            return new ExactSplitStrategy();
+        }else if(type==SplitType::PERCENT){
+            return new PercentageSplitStrategy();
+        }return nullptr;
     }
 };
 
@@ -230,13 +235,100 @@ public:
         User* toUser,
         double amount
     ){
-        for(Balance* balance:balances){
-            if(fromUser==balance->getFromUser() && toUser==balance->getToUser()){
+        for(int i = 0; i < balances.size(); i++){
+
+            Balance* balance = balances[i];
+
+            // Case 1: Same direction
+            // A -> B 100
+            // A -> B 50
+            // A -> B 150
+            if(fromUser == balance->getFromUser() &&
+               toUser == balance->getToUser()){
+
                 balance->updateBalance(amount);
                 return;
             }
+
+            // Case 2: Reverse direction
+            // Existing: A -> B
+            // New:      B -> A
+            if(fromUser == balance->getToUser() &&
+               toUser == balance->getFromUser()){
+
+                double existingAmount = balance->getAmount();
+
+                // Existing balance is greater
+                // A -> B 300
+                // B -> A 100
+                // Result: A -> B 200
+                if(existingAmount > amount){
+                    balance->settleBalance(amount);
+                    return;
+                }
+
+                // Both completely cancel
+                // A -> B 300
+                // B -> A 300
+                // Result: nothing
+                else if(existingAmount == amount){
+                    delete balance;
+                    balances.erase(balances.begin() + i);
+                    return;
+                }
+
+                // New reverse balance is greater
+                // A -> B 300
+                // B -> A 500
+                // Result: B -> A 200
+                else{
+                    double remaining = amount - existingAmount;
+
+                    delete balance;
+                    balances.erase(balances.begin() + i);
+
+                    Balance* newBalance =
+                        new Balance(fromUser, toUser, remaining);
+
+                    balances.push_back(newBalance);
+
+                    return;
+                }
+            }
         }
-        Balance* balance = new Balance(fromUser,toUser, amount);
+
+        // No existing balance between these users
+        Balance* balance = new Balance(fromUser, toUser, amount);
         balances.push_back(balance);
+    }
+};
+
+
+class ExpenseService{
+private:
+    BalanceService* balanceService;
+
+public:
+    ExpenseService(BalanceService* balanceService){
+        this->balanceService=balanceService;
+    }
+
+    Expense* createExpense(SplitType type,string id,double totalAmount,User* paidBy,string description,vector<User*>&users,vector<double>&values){
+        SplitFactory factory;
+        SplitStrategy* strategy = factory.createSplitStrategy(type);
+        vector<Split*>splits = strategy->calculateSplits(totalAmount,users,values);
+        delete strategy;
+        Expense* expense = new Expense(id,description,paidBy,totalAmount);
+        for(Split* split:splits){
+            expense->addSplit(split);
+            
+            User* user = split->getUser();
+            if(user!=paidBy){
+                balanceService->addOrUpdateBalance(user,paidBy,split->getAmount());
+            }
+            
+            
+        }
+        return expense;
     }
 };
