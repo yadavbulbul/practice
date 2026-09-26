@@ -2,20 +2,28 @@
 #include<vector>
 #include<queue>
 #include<map>
+#include<set>
 
 using namespace std;
 
-class Node {
-  public:
-    int data;
-    Node* left, *right;
-    Node(int data) {
-        data = data;
-        left = right = nullptr;
+class TreeNode{
+public:
+    int val;
+    TreeNode* left;
+    TreeNode* right;
+
+    TreeNode(int val,TreeNode* left,TreeNode* right){
+        this->val=val;
+        this->left=left;
+        this->right=right;
     }
 
+    TreeNode(int val){
+        this->val=val;
+        this->left=nullptr;
+        this->right=nullptr;
+    }
 };
-
 class Solution {
 public:
     vector<vector<int>> verticalTraversal(TreeNode* root) {
